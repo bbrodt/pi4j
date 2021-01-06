@@ -19,6 +19,7 @@
         <!-- while the pi4j-native dependency is not needed for compiling this
              project, including it here ensures that it gets compiled in the maven
              build lifecycle before the pi4j-core project.    -->
+        <!--
         <dependency>
 			<groupId>com.pi4j</groupId>
 			<artifactId>pi4j-native</artifactId>
@@ -27,6 +28,7 @@
 			<type>so</type>
 			<scope>provided</scope>
 		</dependency>
+		-->
 
         <dependency>
             <groupId>junit</groupId>

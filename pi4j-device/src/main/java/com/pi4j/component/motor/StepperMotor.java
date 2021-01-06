@@ -39,4 +39,6 @@ public interface StepperMotor extends Motor {
     byte[] getStepSequence();
     void rotate(double revolutions);
     void step(long steps);
+    void enable(boolean flag);
+    boolean isEnabled();
 }

@@ -36,13 +36,28 @@ import com.pi4j.io.gpio.PinState;
 
 public class GpioStepperMotorComponent extends StepperMotorBase {
 
+	public enum InterfaceType {
+		// This is a Stepper Motor Driver board like the TB6600. This board requires 3 pins:
+		// Pin 1 = Enable/Disable (disabled state means the motor is free to turn "by hand")
+		// Pin 2 = Direction (forward/reverse)
+		// Pin 3 = Step Pulse
+		DRIVER,
+		// this is a 4-wire full-step motor
+		FULL4WIRE,
+		// this is a 4-wire half-step motor
+		HALF4Wire
+	};
+	
     // internal class members
     private GpioPinDigitalOutput pins[];
-    private PinState onState = PinState.HIGH;
-    private PinState offState = PinState.LOW;
+    private PinState onState;
+    private PinState offState;
     private MotorState currentState = MotorState.STOP;
     private GpioStepperMotorControl controlThread = new GpioStepperMotorControl();
     private int sequenceIndex = 0;
+    private InterfaceType type;
+	// state of Enable pin for DRIVER Interface Types
+	private boolean enabled = true; 
 
     /**
      * using this constructor requires that the consumer
@@ -52,21 +67,29 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
      * @param onState pin state to set when MOTOR STEP is ON
      * @param offState pin state to set when MOTOR STEP is OFF
      */
-    public GpioStepperMotorComponent(GpioPinDigitalOutput pins[], PinState onState, PinState offState) {
+    public GpioStepperMotorComponent(GpioPinDigitalOutput pins[], PinState onState, PinState offState, InterfaceType type) {
         this.pins = pins;
         this.onState = onState;
         this.offState = offState;
+        this.type = type;
+        if (type==InterfaceType.DRIVER) {
+        	// this is used to control the Pulse pin on the Stepper Motor Driver:
+        	// we will alternate between HIGH and LOW to step the motor.
+        	stepSequence = new byte[] { 0, 1 };
+        }
     }
 
     /**
      * default constructor; using this constructor assumes that:
      *  (1) a pin state of HIGH is MOTOR STEP ON
      *  (2) a pin state of LOW  is MOTOR STEP OFF
+     *  (3) if number of pins==3, assume a Stepper Motor Driver
+     *      if number of pins==4, assume a 4-wire stepper motor
      *
      * @param pins GPIO digital output pins for each controller in the stepper motor
      */
     public GpioStepperMotorComponent(GpioPinDigitalOutput pins[]) {
-        this.pins = pins;
+        this(pins, PinState.HIGH, PinState.LOW, pins.length==3 ? InterfaceType.DRIVER : InterfaceType.FULL4WIRE);
     }
 
     /**
@@ -93,8 +116,18 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
                 currentState = MotorState.STOP;
 
                 // turn all GPIO pins to OFF state
-                for(GpioPinDigitalOutput pin : pins)
-                    pin.setState(offState);
+                if (type==InterfaceType.DRIVER) {
+                	for (int i=1; i<pins.length; ++i) {
+                		// leave the Enable pin HIGH!
+                		// This forces the Stepper Motor Driver to
+                		// hold the motor at the current position.
+                        pins[i].setState(offState);
+                	}
+                }
+                else {
+                    for(GpioPinDigitalOutput pin : pins)
+                        pin.setState(offState);
+                }
 
                 break;
             }
@@ -131,9 +164,11 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
     private class GpioStepperMotorControl extends Thread {
         public void run() {
 
+        	// enable DRIVER
+        	enable(true);
+        	
             // continuous loop until stopped
             while(currentState != MotorState.STOP) {
-
                 // control direction
                 if(currentState == MotorState.FORWARD)
                     doStep(true);
@@ -141,9 +176,7 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
                     doStep(false);
             }
 
-            // turn all GPIO pins to OFF state
-            for(GpioPinDigitalOutput pin : pins)
-                pin.setState(offState);
+            setState(MotorState.STOP);
         }
     }
 
@@ -189,18 +222,42 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
         else if(sequenceIndex < 0)
             sequenceIndex = (stepSequence.length - 1);
 
-        // start cycling GPIO pins to move the motor forward or reverse
-        for(int pinIndex = 0; pinIndex < pins.length; pinIndex++) {
-            // apply step sequence
-            double nib = Math.pow(2, pinIndex);
-            if((stepSequence[sequenceIndex] & (int)nib) > 0)
-                pins[pinIndex].setState(onState);
+        if (type==InterfaceType.DRIVER) {
+        	// set Stepper Motor Driver direction and pulse the step pin
+            pins[1].setState(forward ? onState : offState);
+            if(stepSequence[sequenceIndex] > 0)
+                pins[2].setState(onState);
             else
-                pins[pinIndex].setState(offState);
+                pins[2].setState(offState);
         }
+        else {
+	        // start cycling GPIO pins to move the motor forward or reverse
+	        for(int pinIndex = 0; pinIndex < pins.length; pinIndex++) {
+	            // apply step sequence
+	            double nib = Math.pow(2, pinIndex);
+	            if((stepSequence[sequenceIndex] & (int)nib) > 0)
+	                pins[pinIndex].setState(onState);
+	            else
+	                pins[pinIndex].setState(offState);
+	        }
+        }
+        
         try {
             Thread.sleep(stepIntervalMilliseconds, stepIntervalNanoseconds);
         }
         catch (InterruptedException e) {}
     }
+
+	@Override
+	public void enable(boolean flag) {
+		if (type==InterfaceType.DRIVER) {
+			enabled  = flag;
+			pins[0].setState(enabled ? onState : offState);
+		}
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return enabled;
+	}
 }

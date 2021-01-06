@@ -10,12 +10,12 @@ bin
 *.iml
 
 # Eclipse files
-.settings
-.classpath
-.project
-.externalToolBuilders
-.metadata
-maven-eclipse.xml
+#.settings
+#.classpath
+#.project
+#.externalToolBuilders
+#.metadata
+#maven-eclipse.xml
 
 # Vim files
 *.swp

@@ -31,7 +31,7 @@ package com.pi4j.component.motor;
 
 public abstract class StepperMotorBase extends MotorBase implements StepperMotor {
 
-    protected long stepIntervalMilliseconds = 100;
+	protected long stepIntervalMilliseconds = 100;
     protected int stepIntervalNanoseconds = 0;
     protected byte[] stepSequence;
     protected int stepsPerRevolution = 0;
@@ -76,4 +76,11 @@ public abstract class StepperMotorBase extends MotorBase implements StepperMotor
 
     @Override
     public abstract void step(long steps);
+
+
+    @Override
+	public abstract void enable(boolean flag);
+
+	@Override
+	public abstract boolean isEnabled();
 }
