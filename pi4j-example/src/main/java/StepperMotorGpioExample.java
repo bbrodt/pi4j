@@ -63,9 +63,9 @@ public class StepperMotorGpioExample {
         // provision gpio pins #00 to #02 as Driver Enable, Direction and Pulse
     	// output pins and ensure in LOW state
         final GpioPinDigitalOutput[] pins = {
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_00, PinState.LOW), // Enable
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01, PinState.LOW), // Direction
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02, PinState.LOW)  // Pulse step
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_27, PinState.LOW), // Enable
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_28, PinState.LOW), // Direction
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_29, PinState.LOW)  // Pulse step
         };
 
         // this will ensure that the motor is stopped when the program terminates
@@ -75,23 +75,28 @@ public class StepperMotorGpioExample {
         GpioStepperMotorComponent motor = new GpioStepperMotorComponent(pins);
 
         // define stepper parameters before attempting to control motor
-        motor.setStepInterval(100);
+        motor.setStepInterval(0, 100000);
+        //motor.setStepInterval(1);
 
         // There are 200 steps per revolution for the NEMA 17 motor
-        motor.setStepsPerRevolution(200);
+        int s = 3200*2;
+        motor.setStepsPerRevolution(s);
 
-        // test motor control : STEPPING FORWARD
-        System.out.println("   Motor FORWARD for 2000 steps.");
-        motor.step(2000);
-        System.out.println("   Motor STOPPED for 2 seconds.");
-        Thread.sleep(2000);
-
-        // test motor control : STEPPING REVERSE
-        System.out.println("   Motor REVERSE for 2000 steps.");
-        motor.step(-2000);
-        System.out.println("   Motor STOPPED for 2 seconds.");
-        Thread.sleep(2000);
-
+        //s = 2000;
+        for (int r=0; r<2; ++r) {
+	        // test motor control : STEPPING FORWARD
+	        System.out.println("   Motor FORWARD for "+s+" steps.");
+	        motor.step(s);
+	        System.out.println("   Motor STOPPED for 1 seconds.");
+	        Thread.sleep(1000);
+	
+	        // test motor control : STEPPING REVERSE
+	        System.out.println("   Motor REVERSE for "+s+" steps.");
+	        motor.step(-s);
+	        System.out.println("   Motor STOPPED for 1 seconds.");
+	        Thread.sleep(1000);
+        }
+//if (1==1) return;
         // test motor control : ROTATE FORWARD
         System.out.println("   Motor FORWARD for 10 revolutions.");
         motor.rotate(10);
@@ -118,8 +123,9 @@ public class StepperMotorGpioExample {
 
         // test motor control : ROTATE FORWARD with different timing and sequence
         System.out.println("   Motor FORWARD with slower speed and higher torque for 10 revolutions.");
-        motor.setStepInterval(10);
+        motor.setStepInterval(1);
         motor.rotate(1);
+        motor.rotate(-1);
         System.out.println("   Motor STOPPED.");
 
         // final stop to ensure no motor activity
@@ -130,10 +136,10 @@ public class StepperMotorGpioExample {
     private static void runFull4WireExample() throws InterruptedException {
         // provision gpio pins #00 to #03 as output pins and ensure in LOW state
         final GpioPinDigitalOutput[] pins = {
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_00, PinState.LOW),
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01, PinState.LOW),
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02, PinState.LOW),
-                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_03, PinState.LOW)
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_21, PinState.LOW),
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_22, PinState.LOW),
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_23, PinState.LOW),
+                gpio.provisionDigitalOutputPin(RaspiPin.GPIO_24, PinState.LOW)
         };
 
         // this will ensure that the motor is stopped when the program terminates

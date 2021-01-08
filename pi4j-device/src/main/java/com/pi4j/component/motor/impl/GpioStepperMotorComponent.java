@@ -72,11 +72,6 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
         this.onState = onState;
         this.offState = offState;
         this.type = type;
-        if (type==InterfaceType.DRIVER) {
-        	// this is used to control the Pulse pin on the Stepper Motor Driver:
-        	// we will alternate between HIGH and LOW to step the motor.
-        	stepSequence = new byte[] { 0, 1 };
-        }
     }
 
     /**
@@ -188,19 +183,19 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
             setState(MotorState.STOP);
             return;
         }
+        sequenceIndex = 0;
 
         // perform step in positive or negative direction from current position
-        if (steps > 0){
-            for(long index = 1; index <= steps; index++)
-                doStep(true);
+        boolean forward = true;
+        if (steps < 0){
+        	steps = -steps;
+        	forward = false;
         }
-        else {
-            for(long index = steps; index < 0; index++)
-                doStep(false);
-        }
+        for(long index = 0; index < steps; index++)
+            doStep(forward);
 
         // stop motor movement
-        this.stop();
+        //this.stop();
     }
 
     /**
@@ -216,22 +211,22 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
         else
             sequenceIndex--;
 
-        // check sequence bounds; rollover if needed
-        if(sequenceIndex >= stepSequence.length)
-            sequenceIndex = 0;
-        else if(sequenceIndex < 0)
-            sequenceIndex = (stepSequence.length - 1);
-
         if (type==InterfaceType.DRIVER) {
         	// set Stepper Motor Driver direction and pulse the step pin
             pins[1].setState(forward ? onState : offState);
-            if(stepSequence[sequenceIndex] > 0)
+            if((sequenceIndex & 1) == 1)
                 pins[2].setState(onState);
             else
                 pins[2].setState(offState);
         }
         else {
-	        // start cycling GPIO pins to move the motor forward or reverse
+            // check sequence bounds; rollover if needed
+            if(sequenceIndex >= stepSequence.length)
+                sequenceIndex = 0;
+            else if(sequenceIndex < 0)
+                sequenceIndex = (stepSequence.length - 1);
+
+            // start cycling GPIO pins to move the motor forward or reverse
 	        for(int pinIndex = 0; pinIndex < pins.length; pinIndex++) {
 	            // apply step sequence
 	            double nib = Math.pow(2, pinIndex);
@@ -241,11 +236,16 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
 	                pins[pinIndex].setState(offState);
 	        }
         }
-        
+     
+        long start = System.nanoTime();
+        while (System.nanoTime() - start <= stepIntervalMilliseconds*1000000 + stepIntervalNanoseconds) ;
+   
+        /*
         try {
             Thread.sleep(stepIntervalMilliseconds, stepIntervalNanoseconds);
         }
-        catch (InterruptedException e) {}
+        catch (Exception e) {}
+        */
     }
 
 	@Override
