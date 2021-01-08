@@ -75,9 +75,11 @@ public abstract class StepperMotorBase extends MotorBase implements StepperMotor
     }
 
     @Override
+    public abstract void stepBlocking(long steps);
+
+    @Override
     public abstract void step(long steps);
-
-
+    
     @Override
 	public abstract void enable(boolean flag);
 

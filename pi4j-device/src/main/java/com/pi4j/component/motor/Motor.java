@@ -43,4 +43,7 @@ public interface Motor extends Component {
     boolean isState(MotorState state);
     boolean isStopped();
 
+    void addStateChangeListener(MotorStateChangeListener listener);
+    void removeStateChangeListener(MotorStateChangeListener listener);
+    void notifyStateChangeListeners();
 }

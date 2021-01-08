@@ -41,4 +41,5 @@ public interface StepperMotor extends Motor {
     void step(long steps);
     void enable(boolean flag);
     boolean isEnabled();
+	void stepBlocking(long steps);
 }

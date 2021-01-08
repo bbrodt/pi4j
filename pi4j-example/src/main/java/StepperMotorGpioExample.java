@@ -27,6 +27,8 @@
  * #L%
  */
 
+import com.pi4j.component.motor.MotorState;
+import com.pi4j.component.motor.MotorStateChangeListener;
 import com.pi4j.component.motor.impl.GpioStepperMotorComponent;
 import com.pi4j.io.gpio.GpioController;
 import com.pi4j.io.gpio.GpioFactory;
@@ -43,6 +45,17 @@ import com.pi4j.io.gpio.RaspiPin;
 public class StepperMotorGpioExample {
 
 	private static GpioController gpio;
+	private static boolean stateChanged = false;
+   
+    private static MotorStateChangeListener listener = new MotorStateChangeListener() {
+
+		@Override
+		public void motorStateChange(MotorState state) {
+			System.out.println("Motor State Changed: "+state.name());
+	    	if (state == MotorState.STOP)
+	    		stateChanged = true;    		
+		}
+    };
 	
     public static void main(String[] args) throws InterruptedException {
         System.out.println("<--Pi4J--> GPIO Stepper Motor Example ... started.");
@@ -50,7 +63,14 @@ public class StepperMotorGpioExample {
         // create gpio controller
         gpio = GpioFactory.getInstance();
         
-        runDriverExample();
+        System.out.println("DRIVER or FULL4WIRE stepper motor (D/F)?");
+        String type = System.console().readLine();
+        if (type.contains("d") || type.contains("D"))
+        	runDriverExample();
+        else if (type.contains("f") || type.contains("F"))
+        	runFull4WireExample();
+        else
+        	System.out.println("incorrect input!");
 
         // stop all GPIO activity/threads by shutting down the GPIO controller
         // (this method will forcefully shutdown all GPIO monitoring threads and scheduled tasks)
@@ -59,6 +79,14 @@ public class StepperMotorGpioExample {
         System.out.println("Exiting StepperMotorGpioExample");
     }
 
+    private static void waitForStop(GpioStepperMotorComponent motor) throws InterruptedException {
+        while (motor.getState() != MotorState.STOP) {
+        	Thread.sleep(1000);
+        	System.out.print(".");
+        }
+        System.out.println();
+    }
+    
     private static void runDriverExample() throws InterruptedException {
         // provision gpio pins #00 to #02 as Driver Enable, Direction and Pulse
     	// output pins and ensure in LOW state
@@ -73,6 +101,7 @@ public class StepperMotorGpioExample {
 
         // create motor component
         GpioStepperMotorComponent motor = new GpioStepperMotorComponent(pins);
+        motor.addStateChangeListener(listener);
 
         // define stepper parameters before attempting to control motor
         motor.setStepInterval(0, 100000);
@@ -87,16 +116,18 @@ public class StepperMotorGpioExample {
 	        // test motor control : STEPPING FORWARD
 	        System.out.println("   Motor FORWARD for "+s+" steps.");
 	        motor.step(s);
+	        waitForStop(motor);
 	        System.out.println("   Motor STOPPED for 1 seconds.");
 	        Thread.sleep(1000);
 	
 	        // test motor control : STEPPING REVERSE
 	        System.out.println("   Motor REVERSE for "+s+" steps.");
 	        motor.step(-s);
+	        waitForStop(motor);
 	        System.out.println("   Motor STOPPED for 1 seconds.");
 	        Thread.sleep(1000);
         }
-//if (1==1) return;
+
         // test motor control : ROTATE FORWARD
         System.out.println("   Motor FORWARD for 10 revolutions.");
         motor.rotate(10);
@@ -124,7 +155,7 @@ public class StepperMotorGpioExample {
         // test motor control : ROTATE FORWARD with different timing and sequence
         System.out.println("   Motor FORWARD with slower speed and higher torque for 10 revolutions.");
         motor.setStepInterval(1);
-        motor.rotate(1);
+        motor.rotate(10);
         motor.rotate(-1);
         System.out.println("   Motor STOPPED.");
 
@@ -147,6 +178,7 @@ public class StepperMotorGpioExample {
 
         // create motor component
         GpioStepperMotorComponent motor = new GpioStepperMotorComponent(pins);
+        motor.addStateChangeListener(listener);
 
         // @see http://www.lirtex.com/robotics/stepper-motor-controller-circuit/
         //      for additional details on stepping techniques
@@ -197,12 +229,14 @@ public class StepperMotorGpioExample {
         // test motor control : STEPPING FORWARD
         System.out.println("   Motor FORWARD for 2038 steps.");
         motor.step(2038);
+        waitForStop(motor);
         System.out.println("   Motor STOPPED for 2 seconds.");
         Thread.sleep(2000);
 
         // test motor control : STEPPING REVERSE
         System.out.println("   Motor REVERSE for 2038 steps.");
         motor.step(-2038);
+        waitForStop(motor);
         System.out.println("   Motor STOPPED for 2 seconds.");
         Thread.sleep(2000);
 

@@ -1,5 +1,8 @@
 package com.pi4j.component.motor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /*
  * #%L
  * **********************************************************************
@@ -34,6 +37,8 @@ import com.pi4j.component.ComponentBase;
 
 public abstract class MotorBase extends ComponentBase implements Motor {
 
+	private List<MotorStateChangeListener> stateChangeListeners = new ArrayList<MotorStateChangeListener>();
+	
     @Override
     public void forward()    {
         setState(MotorState.FORWARD);
@@ -83,5 +88,26 @@ public abstract class MotorBase extends ComponentBase implements Motor {
     @Override
     public boolean isStopped() {
         return getState().equals(MotorState.STOP);
+    }
+
+    @Override
+    public void addStateChangeListener(MotorStateChangeListener listener) {
+    	for (MotorStateChangeListener l : stateChangeListeners) {
+    		if (l==listener)
+    			return;
+    	}
+    	stateChangeListeners.add(listener);
+    }
+    
+    @Override
+    public void removeStateChangeListener(MotorStateChangeListener listener) {
+    	stateChangeListeners.remove(listener);
+    }
+    
+    @Override
+    public void notifyStateChangeListeners() {
+    	for (MotorStateChangeListener l : stateChangeListeners) {
+    		l.motorStateChange(getState());
+    	}
     }
 }

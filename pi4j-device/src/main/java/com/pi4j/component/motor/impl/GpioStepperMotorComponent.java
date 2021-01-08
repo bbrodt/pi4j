@@ -55,6 +55,8 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
     private MotorState currentState = MotorState.STOP;
     private GpioStepperMotorControl controlThread = new GpioStepperMotorControl();
     private int sequenceIndex = 0;
+    private long stepCount = 0;
+    private long stepIndex = 0;
     private InterfaceType type;
 	// state of Enable pin for DRIVER Interface Types
 	private boolean enabled = true; 
@@ -105,55 +107,57 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
     @Override
     public void setState(MotorState state) {
 
-        switch(state) {
-            case STOP: {
-                // set internal tracking state
-                currentState = MotorState.STOP;
-
-                // turn all GPIO pins to OFF state
-                if (type==InterfaceType.DRIVER) {
-                	for (int i=1; i<pins.length; ++i) {
-                		// leave the Enable pin HIGH!
-                		// This forces the Stepper Motor Driver to
-                		// hold the motor at the current position.
-                        pins[i].setState(offState);
-                	}
-                }
-                else {
-                    for(GpioPinDigitalOutput pin : pins)
-                        pin.setState(offState);
-                }
-
-                break;
-            }
-            case FORWARD: {
-                // set internal tracking state
-                currentState = MotorState.FORWARD;
-
-                // start control thread if not already running
-                if(!controlThread.isAlive()) {
-                    controlThread = new GpioStepperMotorControl();
-                    controlThread.start();
-                }
-
-                break;
-            }
-            case REVERSE: {
-                // set internal tracking state
-                currentState = MotorState.REVERSE;
-
-                // start control thread if not already running
-                if(!controlThread.isAlive()) {
-                    controlThread = new GpioStepperMotorControl();
-                    controlThread.start();
-                }
-
-                break;
-            }
-            default: {
-                throw new UnsupportedOperationException("Cannot set motor state: " + state.toString());
-            }
-        }
+    	if (currentState != state) {
+	        switch(state) {
+	            case STOP: {
+	                // set internal tracking state
+	                currentState = MotorState.STOP;
+	
+	                // turn all GPIO pins to OFF state
+	                if (type==InterfaceType.DRIVER) {
+	                	for (int i=1; i<pins.length; ++i) {
+	                		// leave the Enable pin HIGH!
+	                		// This forces the Stepper Motor Driver to
+	                		// hold the motor at the current position.
+	                        pins[i].setState(offState);
+	                	}
+	                }
+	                else {
+	                    for(GpioPinDigitalOutput pin : pins)
+	                        pin.setState(offState);
+	                }
+	                break;
+	            }
+	            case FORWARD: {
+	                // set internal tracking state
+	                currentState = MotorState.FORWARD;
+	
+	                // start control thread if not already running
+	                if(!controlThread.isAlive()) {
+	                    controlThread = new GpioStepperMotorControl();
+	                    controlThread.start();
+	                }
+	
+	                break;
+	            }
+	            case REVERSE: {
+	                // set internal tracking state
+	                currentState = MotorState.REVERSE;
+	
+	                // start control thread if not already running
+	                if(!controlThread.isAlive()) {
+	                    controlThread = new GpioStepperMotorControl();
+	                    controlThread.start();
+	                }
+	
+	                break;
+	            }
+	            default: {
+	                throw new UnsupportedOperationException("Cannot set motor state: " + state.toString());
+	            }
+	        }
+            notifyStateChangeListeners();
+    	}
     }
 
     private class GpioStepperMotorControl extends Thread {
@@ -176,7 +180,7 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
     }
 
     @Override
-    public void step(long steps)
+    public void stepBlocking(long steps)
     {
         // validate parameters
         if (steps == 0) {
@@ -193,9 +197,28 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
         }
         for(long index = 0; index < steps; index++)
             doStep(forward);
+    }
+    
+    @Override
+    public void step(long steps)
+    {
+        // validate parameters
+        if (steps == 0) {
+            setState(MotorState.STOP);
+            return;
+        }
 
-        // stop motor movement
-        //this.stop();
+        // perform step in positive or negative direction from current position
+        boolean forward = true;
+        if (steps < 0){
+        	steps = -steps;
+        	forward = false;
+        }
+        sequenceIndex = 0;
+        stepIndex = 0;
+        stepCount = steps;
+
+        setState(forward ? MotorState.FORWARD : MotorState.REVERSE);
     }
 
     /**
@@ -211,6 +234,16 @@ public class GpioStepperMotorComponent extends StepperMotorBase {
         else
             sequenceIndex--;
 
+        if (stepCount!=0) {
+        	// do a specific number of steps
+        	if (stepIndex >= stepCount) {
+        		// all done
+        		setState(MotorState.STOP);
+        		return;
+        	}
+        	++stepIndex;
+        }
+        
         if (type==InterfaceType.DRIVER) {
         	// set Stepper Motor Driver direction and pulse the step pin
             pins[1].setState(forward ? onState : offState);
